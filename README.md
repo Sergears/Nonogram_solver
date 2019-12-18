@@ -1,5 +1,6 @@
 # Nonogram_solver
-A simple code to solve nonogram puzzles
+A simple code to solve nonogram puzzles.
+
 The code is capable of solving even the most difficult puzzles, and is optimized to be fast and memory efficient.
 Example of the code usage:
 
