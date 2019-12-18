@@ -5,8 +5,8 @@ Example of the code usage:
 
 ```
 import Nonogram_solver
-top_digits = [[1,3],[2,2,1],[1,5],[3,2],[1,4],[1,1,3,3],[1,1,1,1],[1,2,2],[1,1,1,3],[1,1,1,3,1],[3,2,2],[5,1],[1,7],[2,4,2,1],[1,3]]
-side_digits = [[5],[1,5],[3,1],[2,2],[3,3],[5,4],[2,4,2],[1,1,2],[1,4,1],[4,7],[4,2,2],[2,2,2,1],[1,1,1,1],[1,1,1,1],[1,1,1]]
+top_digits = [[1], [4], [3], [3], [1]]
+side_digits = [[1], [2,2], [3], [3], [1]]
 my_nonogram = Nonogram_solver.Nonogram(top_digits, side_digits)
 my_nonogram.solve()
 my_nonogram.plot_field()
