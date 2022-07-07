@@ -3,7 +3,7 @@ from matplotlib import colors
 from matplotlib.ticker import MultipleLocator
 import copy
 import time
-
+from math import factorial
 
 class Nonogram:
     """This class contains all the functions needed to solve a nonogram"""
@@ -18,12 +18,15 @@ class Nonogram:
         self.n_rows = len(side_digits)
         self.n_cols = len(top_digits)
         self.field = [[0 for _ in range(self.n_cols)] for _ in range(self.n_rows)]  # the field to solve: 0 means unknown, 1 means space, 2 means painted
+        self.rows_skipped = []
+        self.cols_skipped = []
 
-    def solve(self):
+    def solve(self, n_skip=30_000_000_000):
         """
         This function solves the nonogram and populates self.field with the solution
         """
         time_start = time.time()
+        self.define_skipped_lines(n_skip)  # find what rows and cols to skip
         self.paint_overlaps()  # do fast first iteration
         iteration_count = 0
         while True:  # start solving by going through rows and columns in each iteration
@@ -34,12 +37,34 @@ class Nonogram:
             if 0 not in flattened_field:  # stop if all squares are solved
                 print('puzzle is successfully solved')
                 break
-            if self.field == field_save:  # stop if no progress was made
-                print('stopping because no progress after iteration ', iteration_count)
-                break
+            if self.field == field_save:  # if no progress was made
+                if not self.rows_skipped and not self.cols_skipped:  # no progress and no lines skipped -> cannot solve any more
+                    print('stopping because no progress after iteration ', iteration_count)
+                    break
+                else:
+                    print('no progress - solving with the skipped rows and columns')  # no progress but there are lines skipped -> start solving with skipped lines
+                    self.rows_skipped = []
+                    self.cols_skipped = []
             iteration_count += 1
         time_finish = time.time()
         print('elapsed time:', time_finish - time_start, 'seconds')
+
+    def define_skipped_lines(self, n_skip):
+        """
+        this function adds rows or columns to the lists to skip if there are too many options
+        """
+        for ind_row in range(self.n_rows):  # go row-by-row
+            block_lengths = self.side_digits[ind_row]
+            n_options = self.estimate_n_options(block_lengths, self.n_cols)
+            if n_options > n_skip:
+                self.rows_skipped.append(ind_row)
+                print(n_options, 'options in row', ind_row, '- will be skipped')
+        for ind_col in range(self.n_cols):  # go col-by-col
+            block_lengths = self.top_digits[ind_col]
+            n_options = self.estimate_n_options(block_lengths, self.n_rows)
+            if n_options > n_skip:
+                self.cols_skipped.append(ind_col)
+                print(n_options, 'options in col', ind_col, '- will be skipped')
 
     def paint_overlaps(self):
         """
@@ -67,19 +92,25 @@ class Nonogram:
         :return:
         """
         for ind_row in range(self.n_rows):  # go row-by-row
-            print('\tsolving row', ind_row)
-            line = self.field[ind_row]  # select the current row of the field solution
-            block_lengths = self.side_digits[ind_row]
-            updated_line = self.update_line(line, block_lengths)
-            self.field[ind_row] = updated_line
+            if ind_row in self.rows_skipped:
+                print('\tSKIPPING row', ind_row)
+            else:
+                print('\tsolving row', ind_row)
+                line = self.field[ind_row]  # select the current row of the field solution
+                block_lengths = self.side_digits[ind_row]
+                updated_line = self.update_line(line, block_lengths)
+                self.field[ind_row] = updated_line
 
         for ind_col in range(self.n_cols):  # then go col-by-col
-            print('\tsolving column', ind_col)
-            line = [row[ind_col] for row in self.field]
-            block_lengths = self.top_digits[ind_col]
-            updated_line = self.update_line(line, block_lengths)
-            for ind_row in range(self.n_rows):
-                self.field[ind_row][ind_col] = updated_line[ind_row]
+            if ind_col in self.cols_skipped:
+                print('\tSKIPPING col', ind_col)
+            else:
+                print('\tsolving column', ind_col)
+                line = [row[ind_col] for row in self.field]
+                block_lengths = self.top_digits[ind_col]
+                updated_line = self.update_line(line, block_lengths)
+                for ind_row in range(self.n_rows):
+                    self.field[ind_row][ind_col] = updated_line[ind_row]
 
     def update_line(self, line, block_lengths):
         """
@@ -188,10 +219,10 @@ class Nonogram:
         norm = colors.BoundaryNorm(bounds, cmap.N)
         fig, ax = plt.subplots()
         ax.imshow(self.field, cmap=cmap, norm=norm, extent=[0, self.n_cols, self.n_rows, 0])
-        for ind_row in range(self.n_rows):
-            for ind_col in range(self.n_cols):
-                if self.field[ind_row][ind_col] == 1:
-                    ax.text(ind_col + 0.5, ind_row + 0.5, 'x', ha="center", va="center", fontsize=10)
+        #for ind_row in range(self.n_rows):
+        #    for ind_col in range(self.n_cols):
+        #        if self.field[ind_row][ind_col] == 1:
+        #            ax.text(ind_col + 0.5, ind_row + 0.5, 'x', ha="center", va="center", fontsize=5)
         for ind_row in range(self.n_rows):
             string = ''
             for digit in self.side_digits[ind_row]:
@@ -209,11 +240,19 @@ class Nonogram:
         ax.xaxis.set_minor_locator(MultipleLocator(1))
         ax.yaxis.set_minor_locator(MultipleLocator(1))
         ax.yaxis.tick_right()
-        ax.grid(True, which='minor', color='k', linestyle='-', linewidth=0.5)
-        ax.grid(which='major', color='k', linestyle='-', linewidth=2)
+        ax.grid(True, which='minor', color='k', linestyle='-', linewidth=0.25)
+        ax.grid(which='major', color='k', linestyle='-', linewidth=1)
         if not pause:
             plt.show()
         else:
             plt.show(block=False)
             plt.pause(pause)
             plt.close()
+
+    def estimate_n_options(self, block_lengths, n_line):
+        free_squares = n_line - sum(block_lengths)
+        n_ways_last_gap_not_empty = 0
+        if free_squares >= len(block_lengths):
+            n_ways_last_gap_not_empty = factorial(free_squares) // factorial(len(block_lengths)) // factorial(free_squares - len(block_lengths))
+        n_ways_last_gap_empty = factorial(free_squares) // factorial(len(block_lengths)-1) // factorial(free_squares - len(block_lengths)+1)
+        return n_ways_last_gap_not_empty + n_ways_last_gap_empty
