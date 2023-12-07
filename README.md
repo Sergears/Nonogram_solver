@@ -1,27 +1,74 @@
-# Nonogram_solver
-A simple code to solve nonogram puzzles like this
+# Nonogram solver
+A simple code to solve [nonogram puzzles](https://en.wikipedia.org/wiki/Nonogram) like this
 
-<img src="Example_solution.png" alt="drawing" width="600"/>
+<img src="examples/antelope/solution.png" alt="drawing" width="600"/>
 
-To use the code, define the puzzle by specifying the `top_digits` organized as `[[column1], [column2],...]` and `side_digits` organized as `[[row1], [row2],...]`.
+# Getting started
+Install the necessary libraries:
+```
+pip install -r requirements.txt
+```
 
-Example of the code usage:
+Try out an example puzzle:
+```
+python examples/antelope/examle.py
+```
+
+# Example of code usage
+To solve the puzzle displayed above, we need to input the numbers:
+- `top_nums`: columns on the top organized as `[[column1], [column2],...]`
+- `side_nums`: rows on the left organized as `[[row1], [row2],...]`:
+
 ```python
-import Nonogram_solver
+top_nums = [
+    [1,3],
+    [2,2,1],
+    [1,5],
+    [3,2],
+    [1,4],
+    [1,1,3,3],
+    [1,1,1,1],
+    [1,2,2],
+    [1,1,1,3],
+    [1,1,1,3,1],
+    [3,2,2],
+    [5,1],
+    [1,7],
+    [2,4,2,1],
+    [1,3]
+    ]
+side_nums = [
+    [5],
+    [1,5],
+    [3,1],
+    [2,2],
+    [3,3],
+    [5,4],
+    [2,4,2],
+    [1,1,2],
+    [1,4,1],
+    [4,7],
+    [4,2,2],
+    [2,2,2,1],
+    [1,1,1,1],
+    [1,1,1,1],
+    [1,1,1]
+    ]
+```
 
-# define puzzle
-top_digits = [[1,3],[2,2,1],[1,5],[3,2],[1,4],[1,1,3,3],[1,1,1,1],[1,2,2],[1,1,1,3],[1,1,1,3,1],[3,2,2],[5,1],[1,7],[2,4,2,1],[1,3]]
-side_digits = [[5],[1,5],[3,1],[2,2],[3,3],[5,4],[2,4,2],[1,1,2],[1,4,1],[4,7],[4,2,2],[2,2,2,1],[1,1,1,1],[1,1,1,1],[1,1,1]]
-my_nonogram = Nonogram_solver.Nonogram(top_digits, side_digits)
+After this, solving the puzzle is simply done with
+```python
+from nonogram_solver import Nonogram
+my_nonogram = Nonogram(top_nums, side_nums)
 
-# solve puzzle
+# solve the puzzle
 my_nonogram.solve()
 
-# plot solution
+# plot the solution
 my_nonogram.plot_field()
 ```
 
-For large puzzles that can take exponentially long time to solve, a feature is implemented to skip rows that allow too many possible combinations and return to them later. For this, a parameter `n_skip` can be specified when solving the puzzle (30_000_000_000 by default):
+For large puzzles that can take exponentially long time to solve, a feature is implemented to skip rows that allow too many possible combinations and return to them later. For this, a parameter `n_skip` can be specified when solving the puzzle (`30_000_000_000` by default):
 ```python
 my_nonogram.solve(n_skip=30_000_000_000)
 ```
