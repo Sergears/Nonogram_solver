@@ -153,7 +153,7 @@ class Nonogram:
                 )  # paint in between
         for ind_col in range(self.n_cols):  # go col-by-col
             block_lengths = self.top_nums[ind_col]
-            for i, block_length in enumerate(block_lengths):
+            for i in range(len(block_lengths)):
                 min_finish = i + sum(
                     block_lengths[: i + 1]
                 )  # minimum possible end of the block
@@ -207,7 +207,7 @@ class Nonogram:
             updated_line (List[int]): updated state of the input line
         """
         if line == [0] * len(line):
-            # nothing was discovered at the paint_overlap step and nothing 
+            # nothing was discovered at the paint_overlap step and nothing
             # has been added since, there can be no progress
             return line
 
@@ -228,13 +228,13 @@ class Nonogram:
             positions_to_check, line, block_lengths
         )  # initialize positions
         for ind, position in enumerate(positions_to_check):  # go through each position
-            line_to_contradict = [state for state in line]
+            line_to_contradict = list(line)
             if updated_states[ind] == 1:
                 line_to_contradict[position] = 2
             else:
                 line_to_contradict[position] = 1
             if position < len(line) / 2:
-                # if position is closer to the beginning, start countion options from 
+                # if position is closer to the beginning, start countion options from
                 # the start, otherwise from the end
                 options = self.generate_option(line_to_contradict, block_lengths)
             else:
@@ -256,7 +256,7 @@ class Nonogram:
         line: List[int],
         block_lengths: List[int],
         ind_block: int = 0,
-        previous_block_positions: List[int] = []
+        previous_block_positions: List[int] | None = None
     ):
         """
         Generate an option - a list of states (1 or 2) that does not contradict 
@@ -276,6 +276,8 @@ class Nonogram:
             option (List[int]): a list of states (1 or 2) that does not 
                 contradict the already discovered field
         """
+        if previous_block_positions is None:
+            previous_block_positions = []
         if ind_block == 0:  # if it is the first block in the line, start with 0
             min_start = 0
         else:  # otherwise start with the end of the previous block + 1 space square
@@ -295,23 +297,21 @@ class Nonogram:
                 line,
             )
             if block_fits:
-                # if the block fits in the field, add its position to the list 
+                # if the block fits in the field, add its position to the list
                 # and continue recursively
                 block_positions = previous_block_positions + [starting_position]
                 if ind_block != len(block_lengths) - 1:
                     yield from self.generate_option(
                         line, block_lengths, ind_block + 1, block_positions
                     )
-                else:  
-                    # once the final block is placed, convert the block positions 
+                else:
+                    # once the final block is placed, convert the block positions
                     # to an option and yield
-                    option = [1] * len(line)  # start with all spaces
-                    for ind_block, block_position in enumerate(block_positions):
+                    option = [1] * len(line)  # start with all spaces, then paint where needed
+                    for i_block, block_position in enumerate(block_positions):
                         option[
-                            block_position : block_position + block_lengths[ind_block]
-                        ] = [2] * block_lengths[
-                            ind_block
-                        ]  # paint where needed
+                            block_position : block_position + block_lengths[i_block]
+                        ] = [2] * block_lengths[i_block]
                     yield option
 
     def find_if_block_fits(
@@ -345,18 +345,18 @@ class Nonogram:
         if ind_block == 0:
             # if it's the first block in the line, there must be spaces starting from 0
             space_start = 0
-        else:  
+        else:
             # otherwise, there must be spaces starting from the end of the previous block
             space_start = previous_block_positions[-1] + block_lengths[ind_block - 1]
         if 2 in line[space_start:starting_position]:
-            # block does not fit if there must be painted squares where the spaces 
+            # block does not fit if there must be painted squares where the spaces
             # are suggested
             return False
 
         if ind_block == len(block_lengths) - 1:
             # if it's the last block in the line, it also implies spaces everywhere after
             if 2 in line[starting_position + block_lengths[ind_block] : len(line)]:
-                # block does not fit if there must be painted squares where the 
+                # block does not fit if there must be painted squares where the
                 # spaces are suggested
                 return False
         return True
@@ -372,7 +372,7 @@ class Nonogram:
         cmap = colors.ListedColormap(["white", "blue"])
         bounds = [0, 1.5, 2]
         norm = colors.BoundaryNorm(bounds, cmap.N)
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         ax.imshow(
             self.field, cmap=cmap, norm=norm, extent=[0, self.n_cols, self.n_rows, 0]
         )
