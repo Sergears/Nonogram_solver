@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 from matplotlib import colors
 from matplotlib.ticker import MultipleLocator
 
+
 class Nonogram:
     """Solves and visualizes a nonogram puzzle.
 
@@ -59,8 +60,10 @@ class Nonogram:
             n_skip (int): threshold for number of solution options above which to skip the line
         """
         time_start = time.time()
-        self.define_skipped_lines(n_skip)  # find what rows and cols to skip
-        self.paint_overlaps()  # do fast first iteration
+        self.define_skipped_lines(
+            n_skip
+        )  # find what rows and cols to skip now and solve later
+        self.paint_overlaps()  # do fast first iteration of solving the field
         iteration_count = 0
         while True:
             # start solving by going through rows and columns in each iteration
@@ -68,12 +71,14 @@ class Nonogram:
             field_save = copy.deepcopy(self.field)  # save field before the iteration
             self.do_iteration()
             flattened_field = [item for sublist in self.field for item in sublist]
-            if 0 not in flattened_field:  # stop if all squares are solved
+            if 0 not in flattened_field:
+                # stop if the entire field is solved
                 print("puzzle is successfully solved")
                 break
-            if self.field == field_save:  # if no progress was made
+            if self.field == field_save:
+                # if no progress was made
                 if not self.rows_skipped and not self.cols_skipped:
-                    # no progress and no lines skipped -> cannot solve any more
+                    # no lines skipped to come back to -> cannot solve any more
                     print(
                         "stopping because no progress after iteration ", iteration_count
                     )
@@ -85,7 +90,7 @@ class Nonogram:
                 self.cols_skipped = []
             iteration_count += 1
         time_finish = time.time()
-        print("elapsed time:", time_finish - time_start, "seconds")
+        print("elapsed time:", round(time_finish - time_start, 1), "seconds")
 
     def define_skipped_lines(self, n_skip: int) -> None:
         """
@@ -95,13 +100,13 @@ class Nonogram:
         Args:
             n_skip (int): threshold for number of solution options above which to skip the line
         """
-        for ind_row in range(self.n_rows):  # go row-by-row
+        for ind_row in range(self.n_rows):  # go row by row
             block_lengths = self.side_nums[ind_row]
             n_options = self.estimate_n_options(block_lengths, self.n_cols)
             if n_options > n_skip:
                 self.rows_skipped.append(ind_row)
                 print(n_options, "options in row", ind_row, "- will be skipped")
-        for ind_col in range(self.n_cols):  # go col-by-col
+        for ind_col in range(self.n_cols):  # go column by column
             block_lengths = self.top_nums[ind_col]
             n_options = self.estimate_n_options(block_lengths, self.n_rows)
             if n_options > n_skip:
@@ -112,7 +117,7 @@ class Nonogram:
         """
         Make an estimate of the number of possible options to solve the line
 
-        Args:            
+        Args:
             block_lengths (List[int]): block lengths in the given line
             n_line (int): line length
 
@@ -139,7 +144,7 @@ class Nonogram:
         Do fast initial painting of the field where blocks must overlap when
         counted from the beginning and from the end
         """
-        for ind_row in range(self.n_rows):  # go row-by-row
+        for ind_row in range(self.n_rows):  # go row by row
             block_lengths = self.side_nums[ind_row]
             for i, _ in enumerate(block_lengths):
                 min_finish = i + sum(
@@ -151,7 +156,7 @@ class Nonogram:
                 self.field[ind_row][max_start:min_finish] = [2] * (
                     min_finish - max_start
                 )  # paint in between
-        for ind_col in range(self.n_cols):  # go col-by-col
+        for ind_col in range(self.n_cols):  # go column by column
             block_lengths = self.top_nums[ind_col]
             for i in range(len(block_lengths)):
                 min_finish = i + sum(
@@ -211,7 +216,21 @@ class Nonogram:
             # has been added since, there can be no progress
             return line
 
-        def initialize(positions_to_check, line, block_lengths):
+        def initialize(
+            positions_to_check: List[int], line: List[int], block_lengths: List[int]
+        ):
+            """
+            A helper function to initialize line's positions with first
+            possible option. If no option is found, raise an error.
+
+            Args:
+                positions_to_check (List[int]): indexes in the line we are trying to solve
+                line: (List[int]): a line (row or column) of the current field
+                block_lengths (List[int]): block lengths in the given line
+
+            Returns:
+                initialized_states (List[int]): initialized line's positions
+            """
             initialized_states = None
             for option in self.generate_option(line, block_lengths):
                 initialized_states = [option[k] for k in positions_to_check]
@@ -256,24 +275,24 @@ class Nonogram:
         line: List[int],
         block_lengths: List[int],
         ind_block: int = 0,
-        previous_block_positions: List[int] | None = None
+        previous_block_positions: List[int] | None = None,
     ):
         """
-        Generate an option - a list of states (1 or 2) that does not contradict 
-        the already discovered field. It does it by placing the first block in 
-        all possible positions, and then calling itself recursively to place the 
+        Generate an option - a list of states (1 or 2) that does not contradict
+        the already discovered field. It does it by placing the first block in
+        all possible positions, and then calling itself recursively to place the
         next blocks. Once the final block is placed, the option is yielded.
 
         Args:
             line (List[int]): a line (row or column) of the current field
             block_lengths (List[int]): block lengths in the given line
-            ind_block (int): the index of the first block to place (should 
+            ind_block (int): the index of the first block to place (should
                 be 0 unless called recursively)
-            previous_block_positions (List[int]): positions of the already 
+            previous_block_positions (List[int]): positions of the already
                 placed blocks (should be empty unless called recursively)
 
         Returns:
-            option (List[int]): a list of states (1 or 2) that does not 
+            option (List[int]): a list of states (1 or 2) that does not
                 contradict the already discovered field
         """
         if previous_block_positions is None:
@@ -307,7 +326,9 @@ class Nonogram:
                 else:
                     # once the final block is placed, convert the block positions
                     # to an option and yield
-                    option = [1] * len(line)  # start with all spaces, then paint where needed
+                    option = [1] * len(
+                        line
+                    )  # start with all spaces, then paint where needed
                     for i_block, block_position in enumerate(block_positions):
                         option[
                             block_position : block_position + block_lengths[i_block]
@@ -325,12 +346,12 @@ class Nonogram:
         """
         Check if the block fits within the already discovered field
 
-        Args:            
-            ind_block (int): the index of the first block to place (should 
+        Args:
+            ind_block (int): the index of the first block to place (should
                 be 0 unless called recursively)
             starting_position (int): minimum starting position of the block
             block_lengths (List[int]): block lengths in the given line
-            previous_block_positions (List[int]): positions of the already 
+            previous_block_positions (List[int]): positions of the already
                 placed blocks (should be empty unless called recursively)
             line (List[int]): a line (row or column) of the current field
 
@@ -365,7 +386,7 @@ class Nonogram:
         """
         Plot the solved field
 
-        Args:            
+        Args:
             pause (float): time to pause (in seconds) if the function
                 is called after each iteration
         """
