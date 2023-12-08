@@ -68,9 +68,9 @@ my_nonogram.solve()
 my_nonogram.plot_field()
 ```
 
-For large puzzles that can take exponentially long time to solve, a feature is implemented to skip rows that allow too many possible combinations and return to them later. For this, a parameter `n_skip` can be specified when solving the puzzle (`30_000_000_000` by default):
+For large puzzles that can take exponentially long time to solve, a feature is implemented to skip rows that allow too many possible combinations and return to them later. For this, a parameter `skip_threshold` can be specified when solving the puzzle (`30_000_000_000` by default):
 ```python
-my_nonogram.solve(n_skip=30_000_000_000)
+my_nonogram.solve(skip_threshold=30_000_000_000)
 ```
 
 

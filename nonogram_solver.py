@@ -7,6 +7,10 @@ from matplotlib import pyplot as plt
 from matplotlib import colors
 from matplotlib.ticker import MultipleLocator
 
+# States of puzzle field
+UNKNOWN = 0
+SPACE = 1
+PAINTED = 2
 
 class Nonogram:
     """Solves and visualizes a nonogram puzzle.
@@ -30,8 +34,8 @@ class Nonogram:
             in the form [[row1], [row2],...], e.g. [[5],[1,5],...]
         n_rows (int): number of rows in the puzzle
         n_cols (int): number of columns in the puzzle
-        field (List[List[int]]): current solution state: 0 means unknown,
-            1 means space, 2 means painted
+        field (List[List[int]]): current solution state consisting of integer 
+            values UNKNOWN, SPACE, or PAINTED
         rows_skipped (List[int]): row indexes that were skipped to come back to later
         cols_skipped (List[int]): column indexes that were skipped to come back to later
     """
@@ -48,55 +52,61 @@ class Nonogram:
         self.side_nums = side_nums
         self.n_rows = len(side_nums)
         self.n_cols = len(top_nums)
-        self.field = [[0 for _ in range(self.n_cols)] for _ in range(self.n_rows)]
+        self.field = [[UNKNOWN for _ in range(self.n_cols)] for _ in range(self.n_rows)]
         self.rows_skipped: List[int] = []
         self.cols_skipped: List[int] = []
 
-    def solve(self, n_skip: int = 30_000_000_000) -> None:
+    def solve(self, skip_threshold: int = 30_000_000_000) -> None:
         """
-        Solve the puzzle and populate self.field with the solution.
+        Public method that is called on an instance of Nonogram class
+        in order to solve the puzzle. Output: populates self.field
+        attribute of the class instance with the solution.
 
         Args:
-            n_skip (int): threshold for number of solution options above which to skip the line
+            skip_threshold (int): threshold for number of solution options
+            above which to skip the line
         """
         time_start = time.time()
 
         # first, find what rows and cols to skip now and solve later
-        self.define_lines_to_skip(n_skip)
+        self._define_lines_to_skip(skip_threshold)
 
         # before doing solution passes, do fast initial painting of the field
-        self.paint_block_overlaps()
+        self._paint_block_overlaps()
 
         # then, do solution passes until completely solved
-        self.iterate_until_solved()
+        self._iterate_until_solved()
 
         time_finish = time.time()
         print(f"elapsed time: {round(time_finish - time_start, 1)} seconds")
 
-    def define_lines_to_skip(self, n_skip: int) -> None:
+    def _define_lines_to_skip(self, skip_threshold: int) -> None:
         """
-        Add row or column indexes to the lists self.rows_skipped and self.rows_skipped
-        if there are too many options (combinations to place the blocks).
+        Find which rows and columns to skip solving in case of too many
+        options (combinations to place the blocks). Output: populates attributes
+        self.rows_skipped and self.cols_skipped with indexes of the rows and
+        columns to skip.
 
         Args:
-            n_skip (int): threshold for number of solution options above which to skip the line
+            skip_threshold (int): threshold for number of solution options above
+            which to skip the line
         """
         for ind_row in range(self.n_rows):  # go row by row
             block_lengths = self.side_nums[ind_row]
-            n_options = self.estimate_n_options(block_lengths, self.n_cols)
-            if n_options > n_skip:
+            n_options = self._estimate_n_options(block_lengths, self.n_cols)
+            if n_options > skip_threshold:
                 self.rows_skipped.append(ind_row)
                 print(f"{n_options} options in row {ind_row} - will be skipped")
         for ind_col in range(self.n_cols):  # go column by column
             block_lengths = self.top_nums[ind_col]
-            n_options = self.estimate_n_options(block_lengths, self.n_rows)
-            if n_options > n_skip:
+            n_options = self._estimate_n_options(block_lengths, self.n_rows)
+            if n_options > skip_threshold:
                 self.cols_skipped.append(ind_col)
                 print(f"{n_options} options in column {ind_col} - will be skipped")
 
-    def estimate_n_options(self, block_lengths: List[int], n_line: int) -> int:
+    def _estimate_n_options(self, block_lengths: List[int], n_line: int) -> int:
         """
-        Make an estimate of the number of possible options to solve the line
+        Make an estimate of the number of possible options to solve the line.
 
         Args:
             block_lengths (List[int]): block lengths in the given line
@@ -120,10 +130,12 @@ class Nonogram:
         )
         return n_ways_last_gap_not_empty + n_ways_last_gap_empty
 
-    def paint_block_overlaps(self) -> None:
+    def _paint_block_overlaps(self) -> None:
         """
         Do fast initial painting of the field where a block's minimum end position
-        is higher than its maximum start position.
+        is higher than its maximum start position. Output: updates self.field
+        attribute of the class instance replacing some UNKNOWN values with PAINTED
+        values.
         """
         for ind_row in range(self.n_rows):  # go row by row
             block_lengths = self.side_nums[ind_row]
@@ -134,7 +146,7 @@ class Nonogram:
                 max_start = (
                     self.n_cols - sum(block_lengths[i:]) - (len(block_lengths) - i - 1)
                 )  # maximum possible start of the block
-                self.field[ind_row][max_start:min_finish] = [2] * (
+                self.field[ind_row][max_start:min_finish] = [PAINTED] * (
                     min_finish - max_start
                 )  # paint in between
         for ind_col in range(self.n_cols):  # go column by column
@@ -148,9 +160,9 @@ class Nonogram:
                 )  # maximum possible start of the block
                 for ind_row in range(self.n_rows):  # paint in between
                     if max_start <= ind_row < min_finish:
-                        self.field[ind_row][ind_col] = 2
+                        self.field[ind_row][ind_col] = PAINTED
 
-    def iterate_until_solved(self):
+    def _iterate_until_solved(self):
         """
         Iteratively solve the puzzle, updating self.field on each iteration.
         """
@@ -158,9 +170,9 @@ class Nonogram:
         while True:
             print(f"starting iteration {iteration_count}")
             field_save = copy.deepcopy(self.field)  # save field before the iteration
-            self.do_solution_iteration()
+            self._do_solution_iteration()
             flattened_field = [item for sublist in self.field for item in sublist]
-            if 0 not in flattened_field:
+            if UNKNOWN not in flattened_field:
                 # stop if the entire field is solved
                 print("puzzle is successfully solved")
                 break
@@ -178,14 +190,14 @@ class Nonogram:
                 self.cols_skipped = []
             iteration_count += 1
 
-    def do_solution_iteration(self) -> None:
+    def _do_solution_iteration(self) -> None:
         """
         Do one iteration of solving the field
         """
-        self.solve_rows()
-        self.solve_columns()
+        self._solve_rows()
+        self._solve_columns()
 
-    def solve_rows(self):
+    def _solve_rows(self):
         """
         Go through all rows and update them one by one where progress is made.
         """
@@ -196,10 +208,10 @@ class Nonogram:
                 print(f"\tsolving row {ind_row}")
                 line = self.field[ind_row]
                 block_lengths = self.side_nums[ind_row]
-                updated_line = self.update_line(line, block_lengths)
+                updated_line = self._update_line(line, block_lengths)
                 self.field[ind_row] = updated_line
 
-    def solve_columns(self):
+    def _solve_columns(self):
         """
         Go through all columns and update them one by one where progress is made.
         """
@@ -210,11 +222,11 @@ class Nonogram:
                 print(f"\tsolving column {ind_col}")
                 line = [row[ind_col] for row in self.field]
                 block_lengths = self.top_nums[ind_col]
-                updated_line = self.update_line(line, block_lengths)
+                updated_line = self._update_line(line, block_lengths)
                 for ind_row in range(self.n_rows):
                     self.field[ind_row][ind_col] = updated_line[ind_row]
 
-    def update_line(self, line: List[int], block_lengths: List[int]) -> List[int]:
+    def _update_line(self, line: List[int], block_lengths: List[int]) -> List[int]:
         """
         Update a line (row or column). First, an option is constructed to
         initialize the line. Then, for each position in the line, its state
@@ -229,31 +241,31 @@ class Nonogram:
         Returns:
             updated_line (List[int]): updated state of the input line
         """
-        if line == [0] * len(line):
+        if line == [UNKNOWN] * len(line):
             # nothing was discovered at the paint_overlap step and nothing
             # has been added since, there can be no progress
             return line
 
         positions_to_check = [
-            ind for ind, state in enumerate(line) if state == 0
+            ind for ind, state in enumerate(line) if state == UNKNOWN
         ]  # only consider undiscovered positions
-        updated_states = self.initialize_line(positions_to_check, line, block_lengths)
+        updated_states = self._initialize_line(positions_to_check, line, block_lengths)
         for ind, position in enumerate(positions_to_check):  # go through each position
             line_to_contradict = list(line)
-            if updated_states[ind] == 1:
-                line_to_contradict[position] = 2
+            if updated_states[ind] == SPACE:
+                line_to_contradict[position] = PAINTED
             else:
-                line_to_contradict[position] = 1
+                line_to_contradict[position] = SPACE
             if position < len(line) / 2:
                 # if position is closer to the beginning, start countion options from
                 # the start, otherwise from the end
-                options = self.generate_option(line_to_contradict, block_lengths)
+                options = self._generate_option(line_to_contradict, block_lengths)
             else:
-                options = self.generate_option(
+                options = self._generate_option(
                     line_to_contradict[::-1], block_lengths[::-1]
                 )
             for _ in options:
-                updated_states[ind] = 0
+                updated_states[ind] = UNKNOWN
                 break
         updated_line = copy.deepcopy(
             line
@@ -262,7 +274,7 @@ class Nonogram:
             updated_line[position] = updated_states[i]
         return updated_line
 
-    def initialize_line(
+    def _initialize_line(
         self, positions_to_check: List[int], line: List[int], block_lengths: List[int]
     ) -> List[int]:
         """
@@ -278,7 +290,7 @@ class Nonogram:
             initialized_states (List[int]): initialized line's positions
         """
         initialized_states = None
-        for option in self.generate_option(line, block_lengths):
+        for option in self._generate_option(line, block_lengths):
             initialized_states = [option[k] for k in positions_to_check]
             break
         if initialized_states is None:
@@ -286,7 +298,7 @@ class Nonogram:
             raise ValueError
         return initialized_states
 
-    def generate_option(
+    def _generate_option(
         self,
         line: List[int],
         block_lengths: List[int],
@@ -294,7 +306,7 @@ class Nonogram:
         previous_block_positions: List[int] | None = None,
     ):
         """
-        Generate an option - a list of states (1 or 2) that does not contradict
+        Generate an option - a list of states (SPACE or PAINTED) that does not contradict
         the already discovered field. It does it by placing the first block in
         all possible positions, and then calling itself recursively to place the
         next blocks. Once the final block is placed, the option is yielded.
@@ -308,7 +320,7 @@ class Nonogram:
                 placed blocks (should be empty unless called recursively)
 
         Returns:
-            option (List[int]): a list of states (1 or 2) that does not
+            option (List[int]): a list of states (SPACE or PAINTED) that does not
                 contradict the already discovered field
         """
         if previous_block_positions is None:
@@ -326,7 +338,7 @@ class Nonogram:
         )
 
         for starting_position in range(min_start, max_start + 1):
-            block_fits = self.find_if_block_fits(
+            block_fits = self._find_if_block_fits(
                 ind_block,
                 starting_position,
                 block_lengths,
@@ -338,22 +350,22 @@ class Nonogram:
                 # and continue recursively
                 block_positions = previous_block_positions + [starting_position]
                 if ind_block != len(block_lengths) - 1:
-                    yield from self.generate_option(
+                    yield from self._generate_option(
                         line, block_lengths, ind_block + 1, block_positions
                     )
                 else:
                     # once the final block is placed, convert the block positions
                     # to an option and yield
-                    option = [1] * len(
+                    option = [SPACE] * len(
                         line
                     )  # start with all spaces, then paint where needed
                     for i_block, block_position in enumerate(block_positions):
                         option[
                             block_position : block_position + block_lengths[i_block]
-                        ] = [2] * block_lengths[i_block]
+                        ] = [PAINTED] * block_lengths[i_block]
                     yield option
 
-    def find_if_block_fits(
+    def _find_if_block_fits(
         self,
         ind_block: int,
         starting_position: int,
@@ -376,7 +388,7 @@ class Nonogram:
         Returns:
             (bool): True if the block fits in the line, False otherwise
         """
-        if 1 in line[starting_position : starting_position + block_lengths[ind_block]]:
+        if SPACE in line[starting_position : starting_position + block_lengths[ind_block]]:
             return (
                 False  # block does not fit if there must be spaces where it's painted
             )
@@ -387,14 +399,14 @@ class Nonogram:
         else:
             # otherwise, there must be spaces starting from the end of the previous block
             space_start = previous_block_positions[-1] + block_lengths[ind_block - 1]
-        if 2 in line[space_start:starting_position]:
+        if PAINTED in line[space_start:starting_position]:
             # block does not fit if there must be painted squares where the spaces
             # are suggested
             return False
 
         if ind_block == len(block_lengths) - 1:
             # if it's the last block in the line, it also implies spaces everywhere after
-            if 2 in line[starting_position + block_lengths[ind_block] : len(line)]:
+            if PAINTED in line[starting_position + block_lengths[ind_block] : len(line)]:
                 # block does not fit if there must be painted squares where the
                 # spaces are suggested
                 return False
